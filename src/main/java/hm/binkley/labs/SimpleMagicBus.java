@@ -33,7 +33,7 @@ public final class SimpleMagicBus
     @NonNull
     private final BiConsumer<Mailbox, Object> observed;
 
-    public static BiConsumer<Mailbox, Object> ignore() {
+    public static BiConsumer<Mailbox, Object> ignored() {
         return (mailbox, observed) -> {};
     }
 

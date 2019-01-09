@@ -17,7 +17,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static hm.binkley.labs.SimpleMagicBus.ignore;
+import static hm.binkley.labs.SimpleMagicBus.ignored;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.IntStream.range;
@@ -62,14 +62,14 @@ class SimpleMagicBusTest {
     @Test
     void shouldRejectMissingReturnedHandlerInConstructor() {
         assertThatThrownBy(
-                () -> SimpleMagicBus.of(null, failed::add, ignore()))
+                () -> SimpleMagicBus.of(null, failed::add, ignored()))
                 .isInstanceOf(NullPointerException.class);
     }
 
     @Test
     void shouldRejectMissingFailedHandlerInConstructor() {
         assertThatThrownBy(
-                () -> SimpleMagicBus.of(returned::add, null, ignore()))
+                () -> SimpleMagicBus.of(returned::add, null, ignored()))
                 .isInstanceOf(NullPointerException.class);
     }
 
