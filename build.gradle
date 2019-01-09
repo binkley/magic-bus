@@ -90,7 +90,7 @@ tasks {
         violationRules {
             rule {
                 limit {
-                    minimum = new BigDecimal("0.98")
+                    minimum = new BigDecimal("0.99")
                 }
             }
         }

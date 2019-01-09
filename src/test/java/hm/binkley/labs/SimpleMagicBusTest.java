@@ -4,6 +4,7 @@ import hm.binkley.labs.MagicBus.FailedMessage;
 import hm.binkley.labs.MagicBus.Mailbox;
 import hm.binkley.labs.MagicBus.ReturnedMessage;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -25,16 +26,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-@SuppressWarnings("rawtypes") // TODO: Clean up javac warns
+@SuppressWarnings("rawtypes")
+        // TODO: Clean up javac warns
 class SimpleMagicBusTest {
-    private final Class<? extends MagicBus> busType = SimpleMagicBus.class;
     private final List<ReturnedMessage> returned =
             new CopyOnWriteArrayList<>();
     private final List<FailedMessage> failed = new CopyOnWriteArrayList<>();
     private final Map<Mailbox, List<Object>> observed = new LinkedHashMap<>();
-    private MagicBus bus = SimpleMagicBus.of(returned::add, failed::add,
-            (mailbox, message) -> observed.computeIfAbsent(mailbox,
-                    __ -> new ArrayList<>()).add(message));
+
+    private MagicBus bus;
 
     private static <T> List<T> noMailbox() {
         return emptyList();
@@ -48,8 +48,15 @@ class SimpleMagicBusTest {
     private static <T, E extends Exception> Mailbox<T> failWith(
             final Supplier<E> ctor) {
         return __ -> {
-            throw (Exception) ctor.get();
+            throw ctor.get();
         };
+    }
+
+    @BeforeEach
+    void setUp() {
+        bus = SimpleMagicBus.of(returned::add, failed::add,
+                (mailbox, message) -> observed.computeIfAbsent(mailbox,
+                        __ -> new ArrayList<>()).add(message));
     }
 
     @Test
@@ -192,7 +199,7 @@ class SimpleMagicBusTest {
     }
 
     @Test
-    void shouldReceiveOnParentTypeFirst() {
+    void shouldReceiveOnParentTypeFirstInParentFirstOrder() {
         final var delivery = new AtomicInteger();
         final var farRight = new AtomicInteger();
         final var right = new AtomicInteger();
@@ -242,8 +249,7 @@ class SimpleMagicBusTest {
     }
 
     @Test
-    void shouldUnsubscribeThreadSafely()
-            throws InterruptedException {
+    void shouldUnsubscribeThreadSafely() {
         await().atMost(2000L, MILLISECONDS).until(() -> {
             final var latch = new CountDownLatch(100);
             range(0, 100).parallel().forEach((actor) -> {
@@ -266,13 +272,49 @@ class SimpleMagicBusTest {
     @Test
     void shouldComplainWhenUnsubscribingBadMailbox() {
         assertThatThrownBy(() -> {
+            bus.subscribe(RightType.class, __ -> {});
             final Mailbox<RightType> mailbox = __ -> {};
             bus.unsubscribe(RightType.class, mailbox);
         }).isInstanceOf(NoSuchElementException.class);
     }
 
+    @Test
+    void shouldComplainWhenUnsubscribingBadMessageType() {
+        assertThatThrownBy(() -> {
+            final Mailbox<RightType> mailbox = __ -> {};
+            bus.unsubscribe(RightType.class, mailbox);
+        }).isInstanceOf(NoSuchElementException.class);
+    }
+
+    @Test
+    void shouldProvideSubscriberForMessageType() {
+        final Mailbox<RightType> a = new Mailbox<>() {
+            @Override
+            public void receive(final RightType message) {}
+
+            @Override
+            public String toString() {
+                return "b";
+            }
+        };
+        final Mailbox<BaseType> b = new Mailbox<>() {
+            @Override
+            public void receive(final BaseType message) {}
+
+            @Override
+            public String toString() {
+                return "a";
+            }
+        };
+        bus.subscribe(BaseType.class, b);
+        bus.subscribe(RightType.class, a);
+
+        assertThat(((SimpleMagicBus) bus).subscribers(RightType.class))
+                .isEqualTo(List.of(b, a));
+    }
+
     private <T> AssertDelivery<T> assertOn(final List<T> delivered) {
-        return new AssertDelivery<T>(delivered);
+        return new AssertDelivery<>(delivered);
     }
 
     private ReturnedMessage with(final Object message) {
@@ -294,7 +336,7 @@ class SimpleMagicBusTest {
             extends BaseType {}
 
     private abstract static class BaseType {
-        protected BaseType() {}
+        BaseType() {}
     }
 
     @NoArgsConstructor(access = PRIVATE)
@@ -319,7 +361,7 @@ class SimpleMagicBusTest {
 
         @SafeVarargs
         @SuppressWarnings("varargs")
-        private final <U extends T> AssertDelivery<T> delivered(
+        private <U extends T> AssertDelivery<T> delivered(
                 final U... delivered) {
             assertThat(this.delivered).containsExactly(delivered);
             return this;

@@ -4,6 +4,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -18,6 +19,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @RequiredArgsConstructor(staticName = "of")
 @SuppressWarnings({"rawtypes", "unchecked"}) // TODO: Clean up javac warns
@@ -31,12 +33,8 @@ public final class SimpleMagicBus
     @NonNull
     private final BiConsumer<Mailbox, Object> observed;
 
-    public static <T> Consumer<T> discard() {
-        return message -> {};
-    }
-
     public static BiConsumer<Mailbox, Object> ignore() {
-        return (mailbox, message) -> {};
+        return (mailbox, observed) -> {};
     }
 
     private static Consumer<Mailbox> record(
@@ -61,7 +59,8 @@ public final class SimpleMagicBus
     @SuppressFBWarnings("RCN") // TODO: Spotbugs know about onClose?
     public void post(final Object message) {
         try (final Stream<Mailbox> mailboxes
-                = subscribers.of(requireNonNull(message, "message"))) {
+                = subscribers.of(
+                requireNonNull(message, "message").getClass())) {
             final AtomicInteger deliveries = new AtomicInteger();
             mailboxes
                     .onClose(() -> returnIfDead(deliveries, message))
@@ -70,9 +69,17 @@ public final class SimpleMagicBus
         }
     }
 
+    public <T> List<Mailbox<? super T>> subscribers(
+            final Class<T> messageType) {
+        return subscribers.of(messageType)
+                .map(mailbox -> (Mailbox<T>) mailbox)
+                .collect(toList());
+    }
+
     private Consumer<Mailbox> receive(final Object message) {
         return (mailbox) -> {
             try {
+                observed.accept(mailbox, message);
                 mailbox.receive(message);
             } catch (final RuntimeException e) {
                 throw e;
@@ -96,20 +103,18 @@ public final class SimpleMagicBus
         private static int classOrder(final Class<?> a, final Class<?> b) {
             final boolean aFirst = b.isAssignableFrom(a);
             final boolean bFirst = a.isAssignableFrom(b);
-            if (aFirst && !bFirst) {
+
+            if (aFirst && !bFirst)
                 return 1;
-            } else {
-                return bFirst && !aFirst ? -1 : 0;
-            }
+            else if (bFirst && !aFirst)
+                return -1;
+            else
+                return 0;
         }
 
-        private static boolean notRemoved(final Set<Mailbox> mailboxes,
-                final Mailbox mailbox) {
-            return null == mailboxes || !mailboxes.remove(mailbox);
-        }
-
-        private static Set<Mailbox> mailbox(final Class messageType) {
-            return new CopyOnWriteArraySet();
+        private static <T> Set<Mailbox<T>> mailboxes(
+                final Class<T> messageType) {
+            return new CopyOnWriteArraySet<>();
         }
 
         private static Predicate<Entry<Class, Set<Mailbox>>> subscribedTo(
@@ -122,25 +127,22 @@ public final class SimpleMagicBus
             return e -> e.getValue().stream();
         }
 
-        private synchronized void subscribe(final Class messageType,
-                final Mailbox mailbox) {
-            subscribers.computeIfAbsent(messageType, Subscribers::mailbox)
+        private synchronized <T> void subscribe(final Class<T> messageType,
+                final Mailbox<? super T> mailbox) {
+            subscribers.computeIfAbsent(messageType, type -> mailboxes(type))
                     .add(mailbox);
         }
 
         private synchronized void unsubscribe(final Class messageType,
                 final Mailbox mailbox) {
-            subscribers.compute(messageType, (__, mailboxes) -> {
-                if (notRemoved(mailboxes, mailbox)) {
-                    throw new NoSuchElementException();
-                } else {
-                    return mailboxes.isEmpty() ? null : mailboxes;
-                }
-            });
+            final Set<Mailbox> mailboxes = subscribers.get(messageType);
+            if (null == mailboxes)
+                throw new NoSuchElementException();
+            if (!mailboxes.remove(mailbox))
+                throw new NoSuchElementException();
         }
 
-        private synchronized Stream<Mailbox> of(final Object message) {
-            final Class messageType = message.getClass();
+        private synchronized Stream<Mailbox> of(final Class messageType) {
             return subscribers.entrySet().stream()
                     .filter(subscribedTo(messageType))
                     .flatMap(toMailboxes());

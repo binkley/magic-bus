@@ -12,7 +12,7 @@ public interface MagicBus {
     void post(Object message);
 
     @FunctionalInterface
-    public interface Mailbox<T> {
+    interface Mailbox<T> {
         void receive(final T message)
                 throws Exception;
     }
@@ -20,7 +20,7 @@ public interface MagicBus {
     @EqualsAndHashCode
     @RequiredArgsConstructor
     @ToString
-    public static final class FailedMessage {
+    final class FailedMessage {
         public final MagicBus bus;
         public final Mailbox<?> mailbox;
         public final Object message;
@@ -30,7 +30,7 @@ public interface MagicBus {
     @EqualsAndHashCode
     @RequiredArgsConstructor
     @ToString
-    public static final class ReturnedMessage {
+    final class ReturnedMessage {
         public final MagicBus bus;
         public final Object message;
     }
