@@ -109,3 +109,8 @@ tasks {
         dependsOn(jacocoTestCoverageVerification)
     }
 }
+
+wrapper {
+    distributionType = Wrapper.DistributionType.ALL
+    gradleVersion = "${gradleWrapperVersion}"
+}
