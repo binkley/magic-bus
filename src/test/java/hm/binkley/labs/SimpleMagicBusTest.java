@@ -7,11 +7,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,8 +25,8 @@ import static org.awaitility.Awaitility.await;
 @SuppressWarnings("rawtypes")
         // TODO: Clean up javac warns
 class SimpleMagicBusTest {
-    private final List<ReturnedMessage> returned =
-            new CopyOnWriteArrayList<>();
+    private final List<ReturnedMessage> returned
+            = new CopyOnWriteArrayList<>();
     private final List<FailedMessage> failed = new CopyOnWriteArrayList<>();
     private final Map<Mailbox, List<Object>> observed = new LinkedHashMap<>();
 
@@ -55,8 +51,9 @@ class SimpleMagicBusTest {
     @BeforeEach
     void setUp() {
         bus = SimpleMagicBus.of(returned::add, failed::add,
-                (mailbox, message) -> observed.computeIfAbsent(mailbox,
-                        __ -> new ArrayList<>()).add(message));
+                (mailbox, message) -> observed
+                        .computeIfAbsent(mailbox, __ -> new ArrayList<>())
+                        .add(message));
     }
 
     @Test
@@ -82,8 +79,8 @@ class SimpleMagicBusTest {
 
     @Test
     void shouldRejectMissingMessageTypeInSubscribe() {
-        assertThatThrownBy(() -> bus.subscribe(null, __ -> {}))
-                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> bus.subscribe(null, __ -> {
+        })).isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -94,8 +91,8 @@ class SimpleMagicBusTest {
 
     @Test
     void shouldRejectMissingMessageTypeInUnsubscribe() {
-        assertThatThrownBy(() -> bus.unsubscribe(null, __ -> {}))
-                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> bus.unsubscribe(null, __ -> {
+        })).isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -116,10 +113,7 @@ class SimpleMagicBusTest {
         bus.subscribe(RightType.class, messages::add);
         final var message = new RightType();
         bus.post(message);
-        assertOn(messages)
-                .delivered(message)
-                .noneReturned()
-                .noneFailed();
+        assertOn(messages).delivered(message).noneReturned().noneFailed();
     }
 
     @Test
@@ -128,9 +122,7 @@ class SimpleMagicBusTest {
         bus.subscribe(LeftType.class, messages::add);
         final var message = new RightType();
         bus.post(message);
-        assertOn(messages)
-                .noneDelivered()
-                .returned(this.with(message))
+        assertOn(messages).noneDelivered().returned(this.with(message))
                 .noneFailed();
     }
 
@@ -140,19 +132,14 @@ class SimpleMagicBusTest {
         bus.subscribe(BaseType.class, messages::add);
         final var message = new RightType();
         bus.post(message);
-        assertOn(messages)
-                .delivered(message)
-                .noneReturned()
-                .noneFailed();
+        assertOn(messages).delivered(message).noneReturned().noneFailed();
     }
 
     @Test
     void shouldSaveDeadLetters() {
         final var message = new LeftType();
         bus.post(message);
-        assertOn(noMailbox())
-                .noneDelivered()
-                .returned(this.with(message))
+        assertOn(noMailbox()).noneDelivered().returned(this.with(message))
                 .noneFailed();
     }
 
@@ -163,9 +150,7 @@ class SimpleMagicBusTest {
         bus.subscribe(LeftType.class, mailbox);
         final var message = new LeftType();
         bus.post(message);
-        assertOn(noMailbox())
-                .noneDelivered()
-                .noneReturned()
+        assertOn(noMailbox()).noneDelivered().noneReturned()
                 .failed(this.with(mailbox, message, failure));
     }
 
@@ -193,9 +178,7 @@ class SimpleMagicBusTest {
         assertThat(second.get()).isEqualTo(1);
         assertThat(third.get()).isEqualTo(2);
         assertThat(fourth.get()).isEqualTo(3);
-        assertOn(noMailbox())
-                .noneReturned()
-                .noneFailed();
+        assertOn(noMailbox()).noneReturned().noneFailed();
     }
 
     @Test
@@ -214,9 +197,7 @@ class SimpleMagicBusTest {
         assertThat(base.get()).isEqualTo(1);
         assertThat(right.get()).isEqualTo(2);
         assertThat(farRight.get()).isEqualTo(3);
-        assertOn(noMailbox())
-                .noneReturned()
-                .noneFailed();
+        assertOn(noMailbox()).noneReturned().noneFailed();
     }
 
     @Test
@@ -227,9 +208,7 @@ class SimpleMagicBusTest {
         bus.unsubscribe(LeftType.class, mailbox);
         final var message = new LeftType();
         bus.post(message);
-        assertOn(messages)
-                .noneDelivered()
-                .returned(this.with(message))
+        assertOn(messages).noneDelivered().returned(this.with(message))
                 .noneFailed();
     }
 
@@ -242,10 +221,7 @@ class SimpleMagicBusTest {
         bus.unsubscribe(RightType.class, mailboxB);
         final var message = new RightType();
         bus.post(message);
-        assertOn(messagesA)
-                .delivered(message)
-                .noneReturned()
-                .noneFailed();
+        assertOn(messagesA).delivered(message).noneReturned().noneFailed();
     }
 
     @Test
@@ -258,13 +234,10 @@ class SimpleMagicBusTest {
                 bus.unsubscribe(RightType.class, mailbox);
                 latch.countDown();
             });
-            assertThat(latch.await(1000L, MILLISECONDS))
-                    .isNotEqualTo(0);
+            assertThat(latch.await(1000L, MILLISECONDS)).isNotEqualTo(0);
             final var message = new RightType();
             bus.post(message);
-            assertOn(noMailbox())
-                    .returned(this.with(message))
-                    .noneFailed();
+            assertOn(noMailbox()).returned(this.with(message)).noneFailed();
             return true;
         });
     }
@@ -272,8 +245,10 @@ class SimpleMagicBusTest {
     @Test
     void shouldComplainWhenUnsubscribingBadMailbox() {
         assertThatThrownBy(() -> {
-            bus.subscribe(RightType.class, __ -> {});
-            final Mailbox<RightType> mailbox = __ -> {};
+            bus.subscribe(RightType.class, __ -> {
+            });
+            final Mailbox<RightType> mailbox = __ -> {
+            };
             bus.unsubscribe(RightType.class, mailbox);
         }).isInstanceOf(NoSuchElementException.class);
     }
@@ -281,7 +256,8 @@ class SimpleMagicBusTest {
     @Test
     void shouldComplainWhenUnsubscribingBadMessageType() {
         assertThatThrownBy(() -> {
-            final Mailbox<RightType> mailbox = __ -> {};
+            final Mailbox<RightType> mailbox = __ -> {
+            };
             bus.unsubscribe(RightType.class, mailbox);
         }).isInstanceOf(NoSuchElementException.class);
     }
@@ -290,7 +266,8 @@ class SimpleMagicBusTest {
     void shouldProvideSubscriberForMessageType() {
         final Mailbox<RightType> a = new Mailbox<>() {
             @Override
-            public void receive(final RightType message) {}
+            public void receive(final RightType message) {
+            }
 
             @Override
             public String toString() {
@@ -299,7 +276,8 @@ class SimpleMagicBusTest {
         };
         final Mailbox<BaseType> b = new Mailbox<>() {
             @Override
-            public void receive(final BaseType message) {}
+            public void receive(final BaseType message) {
+            }
 
             @Override
             public String toString() {
@@ -327,22 +305,27 @@ class SimpleMagicBusTest {
     }
 
     private static final class FarRightType
-            extends RightType {}
+            extends RightType {
+    }
 
     private static class RightType
-            extends BaseType {}
+            extends BaseType {
+    }
 
     private static final class LeftType
-            extends BaseType {}
+            extends BaseType {
+    }
 
     private abstract static class BaseType {
-        BaseType() {}
+        BaseType() {
+        }
     }
 
     @NoArgsConstructor(access = PRIVATE)
     private static class Discard
             implements Mailbox<RightType> {
-        public void receive(final RightType message) {}
+        public void receive(final RightType message) {
+        }
     }
 
     private final class AssertDelivery<T> {
@@ -384,8 +367,7 @@ class SimpleMagicBusTest {
             return this;
         }
 
-        private AssertDelivery<T> failed(
-                final FailedMessage... failed) {
+        private AssertDelivery<T> failed(final FailedMessage... failed) {
             assertThat(SimpleMagicBusTest.this.failed)
                     .containsExactly(failed);
             return this;
