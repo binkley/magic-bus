@@ -6,7 +6,6 @@ plugins {
     id "org.unbroken-dome.test-sets"
     id "com.dorongold.task-tree"
     id "com.github.ben-manes.versions"
-    id "se.patrikerdes.use-latest-versions"
 }
 
 group = "hm.binkley.labs"
