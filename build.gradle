@@ -36,6 +36,10 @@ dependencies {
 sourceCompatibility = 11
 targetCompatibility = 11
 
+spotbugs {
+    toolVersion = "${spotbugsToolVersion}"
+}
+
 // TODO: How to do this generically with Spotbugs task type?
 spotbugsMain {
     reports {
@@ -54,7 +58,7 @@ spotbugsTest {
 }
 
 jacoco {
-    toolVersion = "${jacocoVersion}"
+    toolVersion = "${jacocoToolVersion}"
 }
 
 defaultTasks "build"
